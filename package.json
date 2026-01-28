@@ -1,0 +1,33 @@
+{
+  "name": "mathemagic-touch",
+  "version": "0.1.0",
+  "description": "Interactive Math Game for IFP",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:migrate": "bunx drizzle-kit migrate",
+    "db:studio": "bunx drizzle-kit studio",
+    "lint": "bunx biome check .",
+    "lint:fix": "bunx biome check --write ."
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "@hono/node-server": "^1.0.0",
+    "drizzle-orm": "^0.30.0",
+    "jsonwebtoken": "^9.0.0",
+    "bcryptjs": "^2.4.3",
+    "zod": "^3.22.0",
+    "@hono/zod-validator": "^0.3.0",
+    "pino": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/jsonwebtoken": "^9.0.0",
+    "drizzle-kit": "^0.21.0",
+    "@biomejs/biome": "^1.6.0"
+  }
+}

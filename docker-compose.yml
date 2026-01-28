@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      DB_PATH: /app/data/app.db
+      JWT_SECRET: change-me
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

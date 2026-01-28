@@ -1,0 +1,1453 @@
+BLUEPRINT MATHEMAGIC TOUCH: NODE.JS + HONO + DRIZZLE + BUN STACK 🚀
+📦 TECH STACK ARCHITECTURE
+text
+┌─────────────────────────────────────────────────────┐
+│                    CLIENT (IFP BROWSER)              │
+│  • HTML5/CSS3/JavaScript Vanilla                     │
+│  • Canvas API                                        │
+│  • Hammer.js (Touch Gestures)                        │
+│  • WebSocket Client                                  │
+└──────────────────────────┬──────────────────────────┘
+                           │ HTTP/WebSocket
+┌──────────────────────────▼──────────────────────────┐
+│                    EDGE LAYER (Optional)            │
+│  • Cloudflare Workers (for global distribution)     │
+│  • Rate Limiting                                     │
+│  • Caching                                           │
+└──────────────────────────┬──────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────┐
+│               BUN RUNTIME + HONO FRAMEWORK          │
+│  • Ultra-fast HTTP server                           │
+│  • WebSocket Server                                 │
+│  • JWT Authentication                               │
+│  • Real-time Game State Management                  │
+└──────────────────────────┬──────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────┐
+│                DRIZZLE ORM + SQLite                 │
+│  • Type-safe database queries                       │
+│  • Migrations                                        │
+│  • SQLite for single-file deployment                │
+│  • Optional: PostgreSQL for production              │
+└──────────────────────────┬──────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────┐
+│                 FILE SYSTEM                         │
+│  • Game Assets (Images, Sounds)                     │
+│  • Static Frontend Files                            │
+│  • Logs                                             │
+└─────────────────────────────────────────────────────┘
+🏗️ PROJECT STRUCTURE
+text
+mathemagic-touch/
+├── package.json
+├── tsconfig.json
+├── bunfig.toml
+├── drizzle.config.ts
+├── .env
+├── .env.example
+│
+├── src/
+│   ├── index.ts                 # Entry point
+│   ├── server.ts                # Hono server setup
+│   ├── lib/
+│   │   ├── db/
+│   │   │   ├── schema.ts        # Drizzle schemas
+│   │   │   ├── index.ts         # Database connection
+│   │   │   └── migrations/      # Drizzle migrations
+│   │   │
+│   │   ├── game-engine/
+│   │   │   ├── index.ts
+│   │   │   ├── math-generator.ts
+│   │   │   ├── physics-engine.ts
+│   │   │   └── game-states.ts
+│   │   │
+│   │   ├── realtime/
+│   │   │   ├── websocket.ts
+│   │   │   ├── room-manager.ts
+│   │   │   └── game-session.ts
+│   │   │
+│   │   ├── auth/
+│   │   │   ├── index.ts
+│   │   │   └── middleware.ts
+│   │   │
+│   │   └── utils/
+│   │       ├── logger.ts
+│   │       ├── validators.ts
+│   │       └── helpers.ts
+│   │
+│   ├── routes/
+│   │   ├── index.ts
+│   │   ├── auth.ts
+│   │   ├── game.ts
+│   │   ├── classroom.ts
+│   │   ├── teacher.ts
+│   │   └── analytics.ts
+│   │
+│   ├── services/
+│   │   ├── game-service.ts
+│   │   ├── user-service.ts
+│   │   ├── analytics-service.ts
+│   │   └── content-service.ts
+│   │
+│   └── types/
+│       └── index.ts
+│
+├── public/                      # Static files
+│   ├── index.html
+│   ├── css/
+│   ├── js/
+│   ├── assets/
+│   └── sw.js                    # Service Worker
+│
+├── client/                      # Frontend source (optional separate)
+│   ├── src/
+│   └── build/
+│
+├── tests/
+│   ├── unit/
+│   └── integration/
+│
+└── scripts/
+    ├── deploy.sh
+    └── backup-db.sh
+📦 PACKAGE.JSON SETUP
+json
+{
+  "name": "mathemagic-touch",
+  "version": "1.0.0",
+  "description": "Interactive Math Game for IFP",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:migrate": "bunx drizzle-kit migrate",
+    "db:studio": "bunx drizzle-kit studio",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "lint": "bunx biome check .",
+    "lint:fix": "bunx biome check --write ."
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "@hono/node-server": "^1.0.0",
+    "drizzle-orm": "^0.30.0",
+    "better-sqlite3": "^9.0.0",
+    "@libsql/client": "^0.6.0",
+    "bcrypt": "^5.1.0",
+    "jsonwebtoken": "^9.0.0",
+    "zod": "^3.22.0",
+    "ws": "^8.14.0",
+    "@hono/ws": "^0.2.0",
+    "@hono/zod-validator": "^0.3.0",
+    "@hono/rate-limiter": "^0.1.0",
+    "pino": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/bcrypt": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.0",
+    "drizzle-kit": "^0.21.0",
+    "@biomejs/biome": "^1.6.0",
+    "@types/ws": "^8.5.0"
+  },
+  "trustedDependencies": [
+    "better-sqlite3"
+  ]
+}
+🗄️ DATABASE SCHEMA WITH DRIZZLE
+typescript
+// src/lib/db/schema.ts
+import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { relations } from 'drizzle-orm';
+
+// Users table
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  email: text('email').unique().notNull(),
+  name: text('name').notNull(),
+  role: text('role', { enum: ['student', 'teacher', 'admin'] }).notNull(),
+  passwordHash: text('password_hash').notNull(),
+  classId: text('class_id').references(() => classes.id),
+  avatar: text('avatar'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+// Classes table
+export const classes = sqliteTable('classes', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  grade: integer('grade').notNull(), // 7, 8, or 9
+  teacherId: text('teacher_id').references(() => users.id),
+  school: text('school'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+// Game sessions table
+export const gameSessions = sqliteTable('game_sessions', {
+  id: text('id').primaryKey(),
+  code: text('code').unique().notNull(), // For joining
+  name: text('name').notNull(),
+  gameType: text('game_type', {
+    enum: ['algebra', 'geometry', 'fractions', 'logic', 'mixed']
+  }).notNull(),
+  difficulty: integer('difficulty').default(1), // 1-10
+  teacherId: text('teacher_id').references(() => users.id),
+  classId: text('class_id').references(() => classes.id),
+  settings: text('settings', { mode: 'json' }).$type<{
+    timeLimit?: number;
+    questionCount?: number;
+    allowHints?: boolean;
+    teamMode?: boolean;
+  }>(),
+  status: text('status', { enum: ['waiting', 'active', 'finished', 'cancelled'] }).default('waiting'),
+  startedAt: integer('started_at', { mode: 'timestamp' }),
+  endedAt: integer('ended_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+// Questions table
+export const questions = sqliteTable('questions', {
+  id: text('id').primaryKey(),
+  topic: text('topic').notNull(),
+  subTopic: text('sub_topic').notNull(),
+  difficulty: integer('difficulty').notNull(), // 1-10
+  questionText: text('question_text').notNull(),
+  questionData: text('question_data', { mode: 'json' }).$type<{
+    type: string;
+    equation?: string;
+    options?: string[];
+    image?: string;
+    interactive?: any;
+  }>().notNull(),
+  correctAnswer: text('correct_answer', { mode: 'json' }).notNull(),
+  solutionSteps: text('solution_steps', { mode: 'json' }).$type<string[]>(),
+  hint: text('hint'),
+  metadata: text('metadata', { mode: 'json' }).$type<{
+    timeEstimate: number;
+    skills: string[];
+    commonMistakes: string[];
+  }>(),
+  createdBy: text('created_by').references(() => users.id),
+  isApproved: integer('is_approved', { mode: 'boolean' }).default(false),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+// Student progress table
+export const studentProgress = sqliteTable('student_progress', {
+  id: text('id').primaryKey(),
+  studentId: text('student_id').references(() => users.id).notNull(),
+  sessionId: text('session_id').references(() => gameSessions.id),
+  questionId: text('question_id').references(() => questions.id).notNull(),
+  answer: text('answer', { mode: 'json' }),
+  isCorrect: integer('is_correct', { mode: 'boolean' }),
+  timeSpent: real('time_spent'), // in seconds
+  usedHints: integer('used_hints').default(0),
+  confidence: integer('confidence'), // 1-5 scale
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+// Real-time game state
+export const gameStates = sqliteTable('game_states', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').references(() => gameSessions.id).unique().notNull(),
+  state: text('state', { mode: 'json' }).$type<{
+    currentQuestion: number;
+    scores: Record<string, number>;
+    timeRemaining: number;
+    activePlayers: string[];
+    gameData: any;
+  }>().notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+// Analytics snapshots
+export const analyticsSnapshots = sqliteTable('analytics_snapshots', {
+  id: text('id').primaryKey(),
+  studentId: text('student_id').references(() => users.id),
+  classId: text('class_id').references(() => classes.id),
+  data: text('data', { mode: 'json' }).$type<{
+    date: string;
+    gamesPlayed: number;
+    averageScore: number;
+    topicPerformance: Record<string, {
+      accuracy: number;
+      averageTime: number;
+      questionsAttempted: number;
+    }>;
+    weakAreas: string[];
+    strengths: string[];
+  }>().notNull(),
+  period: text('period', { enum: ['daily', 'weekly', 'monthly'] }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+// Define relations
+export const usersRelations = relations(users, ({ one, many }) => ({
+  class: one(classes, {
+    fields: [users.classId],
+    references: [classes.id],
+  }),
+  createdSessions: many(gameSessions, { relationName: 'teacher' }),
+}));
+
+export const classesRelations = relations(classes, ({ one, many }) => ({
+  teacher: one(users, {
+    fields: [classes.teacherId],
+    references: [users.id],
+  }),
+  students: many(users),
+  sessions: many(gameSessions),
+}));
+
+export const gameSessionsRelations = relations(gameSessions, ({ one, many }) => ({
+  teacher: one(users, {
+    fields: [gameSessions.teacherId],
+    references: [users.id],
+    relationName: 'teacher',
+  }),
+  class: one(classes, {
+    fields: [gameSessions.classId],
+    references: [classes.id],
+  }),
+  progressRecords: many(studentProgress),
+  gameState: one(gameStates, {
+    fields: [gameSessions.id],
+    references: [gameStates.sessionId],
+  }),
+}));
+
+export const studentProgressRelations = relations(studentProgress, ({ one }) => ({
+  student: one(users, {
+    fields: [studentProgress.studentId],
+    references: [users.id],
+  }),
+  question: one(questions, {
+    fields: [studentProgress.questionId],
+    references: [questions.id],
+  }),
+  session: one(gameSessions, {
+    fields: [studentProgress.sessionId],
+    references: [gameSessions.id],
+  }),
+}));
+🚀 HONO SERVER SETUP
+typescript
+// src/server.ts
+import { Hono } from 'hono';
+import { logger } from 'hono/logger';
+import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
+import { csrf } from 'hono/csrf';
+import { compress } from 'hono/compress';
+import { serveStatic } from '@hono/node-server/serve-static';
+
+import { authMiddleware, teacherMiddleware } from './lib/auth/middleware';
+import { rateLimiter } from './lib/middleware/rate-limiter';
+
+import authRoutes from './routes/auth';
+import gameRoutes from './routes/game';
+import classroomRoutes from './routes/classroom';
+import teacherRoutes from './routes/teacher';
+import analyticsRoutes from './routes/analytics';
+
+import { WebSocketServer } from './lib/realtime/websocket';
+import { setupDB } from './lib/db';
+
+export const setupServer = () => {
+  const app = new Hono<{
+    Variables: {
+      user: {
+        id: string;
+        email: string;
+        role: 'student' | 'teacher' | 'admin';
+        classId?: string;
+      };
+      db: ReturnType<typeof setupDB>;
+    };
+  }>();
+
+  // Database connection per request
+  app.use('*', async (c, next) => {
+    const db = setupDB();
+    c.set('db', db);
+    await next();
+    // Connection is auto-managed by Drizzle
+  });
+
+  // Global middleware
+  app.use('*', logger());
+  app.use('*', cors({
+    origin: ['http://localhost:3000', 'http://ifp.local'],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  }));
+  app.use('*', secureHeaders());
+  app.use('*', compress());
+
+  // CSRF for non-GET requests (except WebSocket upgrade)
+  app.use('/api/*', csrf({ origin: ['http://ifp.local'] }));
+
+  // Rate limiting
+  app.use('/api/auth/*', rateLimiter({ windowMs: 15 * 60 * 1000, max: 5 }));
+  app.use('/api/*', rateLimiter({ windowMs: 60 * 1000, max: 60 }));
+
+  // Serve static files
+  app.use('/*', serveStatic({ root: './public' }));
+
+  // Health check
+  app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  // API routes
+  app.route('/api/auth', authRoutes);
+  app.route('/api/game', gameRoutes);
+  app.route('/api/classroom', classroomRoutes);
+  app.route('/api/teacher', teacherRoutes);
+  app.route('/api/analytics', analyticsRoutes);
+
+  // WebSocket endpoint for real-time game
+  app.get('/ws', async (c) => {
+    const upgradeHeader = c.req.header('Upgrade');
+    if (upgradeHeader !== 'websocket') {
+      return c.text('Expected WebSocket upgrade', 400);
+    }
+
+    // WebSocket handling is done in separate WebSocketServer
+    return c.text('WebSocket endpoint', { status: 101 });
+  });
+
+  // 404 handler
+  app.notFound((c) => c.json({ error: 'Not Found' }, 404));
+
+  // Error handler
+  app.onError((err, c) => {
+    console.error('Server error:', err);
+
+    if (err.name === 'ValidationError') {
+      return c.json({ error: 'Validation Error', details: err.message }, 400);
+    }
+
+    if (err.name === 'UnauthorizedError') {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    return c.json({
+      error: 'Internal Server Error',
+      message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    }, 500);
+  });
+
+  return app;
+};
+🔌 REAL-TIME WEB SOCKET SERVER
+typescript
+// src/lib/realtime/websocket.ts
+import { WebSocket, WebSocketServer as WSWebSocketServer } from 'ws';
+import { createId } from '@paralleldrive/cuid2';
+import { RoomManager } from './room-manager';
+
+interface Client {
+  socket: WebSocket;
+  id: string;
+  userId?: string;
+  role?: string;
+  roomId?: string;
+}
+
+export class GameWebSocketServer {
+  private wss: WSWebSocketServer;
+  private clients: Map<string, Client> = new Map();
+  private roomManager: RoomManager;
+
+  constructor(server: any) {
+    this.wss = new WSWebSocketServer({ server, path: '/ws' });
+    this.roomManager = new RoomManager();
+
+    this.setupWebSocket();
+  }
+
+  private setupWebSocket() {
+    this.wss.on('connection', (socket: WebSocket, request) => {
+      const clientId = createId();
+      const client: Client = { socket, id: clientId };
+      this.clients.set(clientId, client);
+
+      console.log(`Client connected: ${clientId}`);
+
+      // Handle authentication
+      const url = new URL(request.url!, `http://${request.headers.host}`);
+      const token = url.searchParams.get('token');
+
+      if (token) {
+        this.authenticateClient(client, token);
+      }
+
+      // Message handling
+      socket.on('message', (data) => {
+        try {
+          const message = JSON.parse(data.toString());
+          this.handleMessage(client, message);
+        } catch (error) {
+          console.error('Error parsing message:', error);
+        }
+      });
+
+      // Handle disconnection
+      socket.on('close', () => {
+        if (client.roomId) {
+          this.roomManager.leaveRoom(client.roomId, clientId);
+          this.broadcastToRoom(client.roomId, {
+            type: 'player_left',
+            playerId: clientId,
+            userId: client.userId,
+          });
+        }
+        this.clients.delete(clientId);
+        console.log(`Client disconnected: ${clientId}`);
+      });
+
+      // Send welcome message
+      socket.send(JSON.stringify({
+        type: 'welcome',
+        clientId,
+        timestamp: Date.now(),
+      }));
+    });
+  }
+
+  private async authenticateClient(client: Client, token: string) {
+    try {
+      // Verify JWT token (simplified)
+      // const payload = verifyToken(token);
+      // client.userId = payload.userId;
+      // client.role = payload.role;
+
+      // For now, mock authentication
+      client.userId = `user_${createId()}`;
+      client.role = 'student';
+
+      client.socket.send(JSON.stringify({
+        type: 'authenticated',
+        userId: client.userId,
+        role: client.role,
+      }));
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      client.socket.close(1008, 'Authentication failed');
+    }
+  }
+
+  private handleMessage(client: Client, message: any) {
+    switch (message.type) {
+      case 'join_room':
+        this.handleJoinRoom(client, message.roomCode, message.userData);
+        break;
+      case 'leave_room':
+        this.handleLeaveRoom(client);
+        break;
+      case 'game_action':
+        this.handleGameAction(client, message.action, message.data);
+        break;
+      case 'chat_message':
+        this.handleChatMessage(client, message.message);
+        break;
+      case 'heartbeat':
+        client.socket.send(JSON.stringify({ type: 'heartbeat_ack' }));
+        break;
+      default:
+        console.warn('Unknown message type:', message.type);
+    }
+  }
+
+  private handleJoinRoom(client: Client, roomCode: string, userData: any) {
+    const room = this.roomManager.joinRoom(roomCode, client.id, userData);
+
+    if (!room) {
+      client.socket.send(JSON.stringify({
+        type: 'join_error',
+        message: 'Room not found or full',
+      }));
+      return;
+    }
+
+    client.roomId = roomCode;
+
+    // Notify client
+    client.socket.send(JSON.stringify({
+      type: 'room_joined',
+      room: room,
+      players: room.players,
+    }));
+
+    // Notify others in room
+    this.broadcastToRoom(roomCode, {
+      type: 'player_joined',
+      playerId: client.id,
+      userData: userData,
+    });
+
+    // Send current game state if game is active
+    if (room.gameState) {
+      client.socket.send(JSON.stringify({
+        type: 'game_state_update',
+        state: room.gameState,
+      }));
+    }
+  }
+
+  private handleLeaveRoom(client: Client) {
+    if (!client.roomId) return;
+
+    this.roomManager.leaveRoom(client.roomId, client.id);
+    this.broadcastToRoom(client.roomId, {
+      type: 'player_left',
+      playerId: client.id,
+    });
+
+    client.roomId = undefined;
+  }
+
+  private handleGameAction(client: Client, action: string, data: any) {
+    if (!client.roomId) return;
+
+    const room = this.roomManager.getRoom(client.roomId);
+    if (!room) return;
+
+    // Process game action based on game type
+    const result = room.processGameAction(client.id, action, data);
+
+    // Broadcast to all players in room
+    this.broadcastToRoom(client.roomId, {
+      type: 'game_action_result',
+      playerId: client.id,
+      action,
+      result,
+      updatedState: room.gameState,
+    });
+  }
+
+  private handleChatMessage(client: Client, message: string) {
+    if (!client.roomId) return;
+
+    this.broadcastToRoom(client.roomId, {
+      type: 'chat_message',
+      playerId: client.id,
+      userId: client.userId,
+      message,
+      timestamp: Date.now(),
+    });
+  }
+
+  private broadcastToRoom(roomId: string, message: any) {
+    const room = this.roomManager.getRoom(roomId);
+    if (!room) return;
+
+    const messageStr = JSON.stringify(message);
+
+    room.players.forEach(playerId => {
+      const client = this.clients.get(playerId);
+      if (client?.socket.readyState === WebSocket.OPEN) {
+        client.socket.send(messageStr);
+      }
+    });
+  }
+
+  // Send to specific client
+  public sendToClient(clientId: string, message: any) {
+    const client = this.clients.get(clientId);
+    if (client?.socket.readyState === WebSocket.OPEN) {
+      client.socket.send(JSON.stringify(message));
+    }
+  }
+
+  // Broadcast to all connected clients
+  public broadcast(message: any) {
+    const messageStr = JSON.stringify(message);
+    this.clients.forEach(client => {
+      if (client.socket.readyState === WebSocket.OPEN) {
+        client.socket.send(messageStr);
+      }
+    });
+  }
+}
+🎮 GAME ENGINE WITH MATH GENERATOR
+typescript
+// src/lib/game-engine/math-generator.ts
+import { randomInt, randomChoice, randomFloat } from '../utils/helpers';
+
+export type MathTopic = 'algebra' | 'geometry' | 'fractions' | 'logic' | 'mixed';
+export type Difficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
+export interface MathProblem {
+  id: string;
+  topic: MathTopic;
+  subTopic: string;
+  difficulty: Difficulty;
+  question: string;
+  data: {
+    type: 'equation' | 'multiple_choice' | 'drag_drop' | 'interactive';
+    equation?: string;
+    options?: string[];
+    interactiveData?: any;
+    image?: string;
+  };
+  correctAnswer: string | number | string[] | number[];
+  solutionSteps: string[];
+  hints: string[];
+  timeEstimate: number; // seconds
+  metadata: {
+    skills: string[];
+    commonMistakes: string[];
+    curriculumAlignment: string[];
+  };
+}
+
+export class MathProblemGenerator {
+  generateProblem(topic: MathTopic, difficulty: Difficulty): MathProblem {
+    const generator = this.getGenerator(topic);
+    return generator(difficulty);
+  }
+
+  private getGenerator(topic: MathTopic): (difficulty: Difficulty) => MathProblem {
+    const generators = {
+      algebra: this.generateAlgebraProblem.bind(this),
+      geometry: this.generateGeometryProblem.bind(this),
+      fractions: this.generateFractionProblem.bind(this),
+      logic: this.generateLogicProblem.bind(this),
+      mixed: this.generateMixedProblem.bind(this),
+    };
+    return generators[topic];
+  }
+
+  private generateAlgebraProblem(difficulty: Difficulty): MathProblem {
+    const levels = {
+      1: () => {
+        const a = randomInt(1, 10);
+        const b = randomInt(a + 1, 15);
+        const answer = b - a;
+        return {
+          question: `Jika x + ${a} = ${b}, berapa nilai x?`,
+          equation: `x + ${a} = ${b}`,
+          answer,
+          solutionSteps: [
+            `x + ${a} = ${b}`,
+            `x = ${b} - ${a}`,
+            `x = ${answer}`
+          ]
+        };
+      },
+      2: () => {
+        const a = randomInt(2, 5);
+        const b = randomInt(1, 10);
+        const c = randomInt(a + b + 5, 30);
+        const answer = (c - b) / a;
+        return {
+          question: `Selesaikan: ${a}x + ${b} = ${c}`,
+          equation: `${a}x + ${b} = ${c}`,
+          answer,
+          solutionSteps: [
+            `${a}x + ${b} = ${c}`,
+            `${a}x = ${c} - ${b}`,
+            `${a}x = ${c - b}`,
+            `x = ${c - b} / ${a}`,
+            `x = ${answer}`
+          ]
+        };
+      },
+      3: () => {
+        const a = randomInt(2, 4);
+        const b = randomInt(1, 5);
+        const c = randomInt(2, 4);
+        const d = randomInt(6, 20);
+        const answer = (d - b) / (a + c);
+        return {
+          question: `Tentukan nilai x: ${a}x + ${b} = ${c}x + ${d}`,
+          equation: `${a}x + ${b} = ${c}x + ${d}`,
+          answer,
+          solutionSteps: [
+            `${a}x + ${b} = ${c}x + ${d}`,
+            `${a}x - ${c}x = ${d} - ${b}`,
+            `${a - c}x = ${d - b}`,
+            `x = ${d - b} / ${a - c}`,
+            `x = ${answer}`
+          ]
+        };
+      },
+      // Add more difficulty levels...
+    };
+
+    const generator = levels[Math.min(difficulty, 3) as 1 | 2 | 3] || levels[3];
+    const { question, equation, answer, solutionSteps } = generator();
+
+    return {
+      id: `alg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      topic: 'algebra',
+      subTopic: 'linear_equations',
+      difficulty,
+      question,
+      data: {
+        type: 'equation',
+        equation,
+        interactiveData: {
+          tiles: this.generateAlgebraTiles(equation),
+          draggable: true
+        }
+      },
+      correctAnswer: answer,
+      solutionSteps,
+      hints: [
+        'Pindahkan konstanta ke sisi kanan',
+        'Gabungkan variabel x',
+        'Bagi kedua sisi dengan koefisien x'
+      ],
+      timeEstimate: difficulty * 15,
+      metadata: {
+        skills: ['solving_linear_equations', 'algebraic_manipulation'],
+        commonMistakes: ['tanda_negatif', 'pembagian_koefisien'],
+        curriculumAlignment: ['Kurikulum_Merdeka_Kelas_7', 'Bab_2_Aljabar']
+      }
+    };
+  }
+
+  private generateGeometryProblem(difficulty: Difficulty): MathProblem {
+    // Implement geometry problem generator
+    const shapes = ['persegi', 'segitiga', 'lingkaran', 'persegi_panjang', 'trapesium'];
+    const shape = randomChoice(shapes);
+
+    return {
+      id: `geo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      topic: 'geometry',
+      subTopic: shape,
+      difficulty,
+      question: `Hitung luas ${shape} dengan data berikut...`,
+      data: {
+        type: 'interactive',
+        interactiveData: {
+          shape,
+          measurements: this.generateMeasurements(shape, difficulty),
+          draggablePoints: true
+        }
+      },
+      correctAnswer: 0, // Calculate based on shape
+      solutionSteps: [],
+      hints: [],
+      timeEstimate: difficulty * 20,
+      metadata: {
+        skills: ['area_calculation', 'shape_properties'],
+        commonMistakes: ['formula_error', 'unit_conversion'],
+        curriculumAlignment: ['Kurikulum_Merdeka_Kelas_8', 'Bab_4_Geometri']
+      }
+    };
+  }
+
+  private generateFractionProblem(difficulty: Difficulty): MathProblem {
+    // Implement fraction problem generator
+    return {
+      id: `frac_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      topic: 'fractions',
+      subTopic: 'addition',
+      difficulty,
+      question: '',
+      data: { type: 'drag_drop' },
+      correctAnswer: 0,
+      solutionSteps: [],
+      hints: [],
+      timeEstimate: difficulty * 15,
+      metadata: {
+        skills: ['fraction_operations'],
+        commonMistakes: ['common_denominator'],
+        curriculumAlignment: ['Kurikulum_Merdeka_Kelas_7', 'Bab_1_Bilangan']
+      }
+    };
+  }
+
+  private generateLogicProblem(difficulty: Difficulty): MathProblem {
+    // Implement logic problem generator
+    return {
+      id: `logic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      topic: 'logic',
+      subTopic: 'number_patterns',
+      difficulty,
+      question: '',
+      data: { type: 'multiple_choice' },
+      correctAnswer: 0,
+      solutionSteps: [],
+      hints: [],
+      timeEstimate: difficulty * 25,
+      metadata: {
+        skills: ['pattern_recognition', 'logical_thinking'],
+        commonMistakes: ['jumping_to_conclusion'],
+        curriculumAlignment: ['Kurikulum_Merdeka_Kelas_9', 'Bab_6_Logika']
+      }
+    };
+  }
+
+  private generateMixedProblem(difficulty: Difficulty): MathProblem {
+    const topics: MathTopic[] = ['algebra', 'geometry', 'fractions', 'logic'];
+    const topic = randomChoice(topics);
+    return this.generateProblem(topic, difficulty);
+  }
+
+  private generateAlgebraTiles(equation: string): any[] {
+    // Generate visual algebra tiles for interactive manipulation
+    const tiles = [];
+    // Parse equation and create tiles
+    return tiles;
+  }
+
+  private generateMeasurements(shape: string, difficulty: Difficulty): any {
+    // Generate random measurements for shapes based on difficulty
+    switch (shape) {
+      case 'persegi':
+        return { sisi: randomInt(1, 10) * difficulty };
+      case 'segitiga':
+        return { alas: randomInt(1, 10) * difficulty, tinggi: randomInt(1, 10) * difficulty };
+      case 'lingkaran':
+        return { jariJari: randomInt(1, 7) * difficulty };
+      default:
+        return {};
+    }
+  }
+}
+🔐 AUTHENTICATION & MIDDLEWARE
+typescript
+// src/lib/auth/middleware.ts
+import { createMiddleware } from 'hono/factory';
+import { verify } from 'jsonwebtoken';
+import { eq } from 'drizzle-orm';
+import { users } from '../db/schema';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: 'student' | 'teacher' | 'admin';
+  classId?: string;
+}
+
+export const authMiddleware = createMiddleware<{
+  Variables: {
+    user: AuthUser;
+  };
+}>(async (c, next) => {
+  const authHeader = c.req.header('Authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authorization header required' }, 401);
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const payload = verify(token, JWT_SECRET) as AuthUser;
+
+    // Verify user still exists in database
+    const db = c.get('db');
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, payload.id),
+    });
+
+    if (!user) {
+      return c.json({ error: 'User not found' }, 401);
+    }
+
+    c.set('user', {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      classId: user.classId,
+    });
+
+    await next();
+  } catch (error) {
+    return c.json({ error: 'Invalid or expired token' }, 401);
+  }
+});
+
+export const teacherMiddleware = createMiddleware(async (c, next) => {
+  const user = c.get('user');
+
+  if (user.role !== 'teacher' && user.role !== 'admin') {
+    return c.json({ error: 'Teacher access required' }, 403);
+  }
+
+  await next();
+});
+
+export const adminMiddleware = createMiddleware(async (c, next) => {
+  const user = c.get('user');
+
+  if (user.role !== 'admin') {
+    return c.json({ error: 'Admin access required' }, 403);
+  }
+
+  await next();
+});
+📊 API ROUTES EXAMPLE
+typescript
+// src/routes/game.ts
+import { Hono } from 'hono';
+import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
+import { eq, desc, and } from 'drizzle-orm';
+
+import { authMiddleware, teacherMiddleware } from '../lib/auth/middleware';
+import { gameSessions, studentProgress, questions } from '../lib/db/schema';
+import { MathProblemGenerator } from '../lib/game-engine/math-generator';
+
+const app = new Hono();
+
+const createSessionSchema = z.object({
+  name: z.string().min(3).max(100),
+  gameType: z.enum(['algebra', 'geometry', 'fractions', 'logic', 'mixed']),
+  difficulty: z.number().min(1).max(10).default(1),
+  classId: z.string().optional(),
+  settings: z.object({
+    timeLimit: z.number().min(30).max(1800).optional(),
+    questionCount: z.number().min(5).max(50).optional(),
+    allowHints: z.boolean().default(true),
+    teamMode: z.boolean().default(false),
+  }).optional(),
+});
+
+// Create a new game session (Teacher only)
+app.post('/sessions', authMiddleware, teacherMiddleware, zValidator('json', createSessionSchema), async (c) => {
+  const db = c.get('db');
+  const user = c.get('user');
+  const data = c.req.valid('json');
+
+  // Generate unique room code
+  const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  const [session] = await db.insert(gameSessions).values({
+    id: crypto.randomUUID(),
+    code,
+    name: data.name,
+    gameType: data.gameType,
+    difficulty: data.difficulty,
+    teacherId: user.id,
+    classId: data.classId,
+    settings: data.settings,
+    status: 'waiting',
+  }).returning();
+
+  return c.json({
+    success: true,
+    session: {
+      ...session,
+      joinCode: code,
+      joinUrl: `${c.req.header('Origin')}/join/${code}`,
+    }
+  });
+});
+
+// Join a game session
+app.post('/sessions/:code/join', authMiddleware, async (c) => {
+  const db = c.get('db');
+  const user = c.get('user');
+  const code = c.req.param('code');
+
+  const session = await db.query.gameSessions.findFirst({
+    where: eq(gameSessions.code, code),
+  });
+
+  if (!session) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+
+  if (session.status !== 'waiting') {
+    return c.json({ error: 'Session already started or ended' }, 400);
+  }
+
+  // Check if user is in the class (if session is class-based)
+  if (session.classId && user.classId !== session.classId) {
+    return c.json({ error: 'Not authorized to join this session' }, 403);
+  }
+
+  return c.json({
+    success: true,
+    session: {
+      id: session.id,
+      name: session.name,
+      gameType: session.gameType,
+      difficulty: session.difficulty,
+      teacherId: session.teacherId,
+      settings: session.settings,
+    },
+    user: {
+      id: user.id,
+      name: user.email, // In real app, use actual name
+      role: user.role,
+    }
+  });
+});
+
+// Get questions for a game
+app.get('/questions', authMiddleware, async (c) => {
+  const { topic, difficulty, count } = c.req.query();
+
+  const generator = new MathProblemGenerator();
+  const questions = [];
+
+  const questionCount = parseInt(count || '10');
+  const questionDifficulty = parseInt(difficulty || '3') as any;
+  const questionTopic = (topic || 'mixed') as any;
+
+  for (let i = 0; i < questionCount; i++) {
+    questions.push(generator.generateProblem(questionTopic, questionDifficulty));
+  }
+
+  return c.json({ questions });
+});
+
+// Submit answer
+app.post('/answers', authMiddleware, zValidator('json', z.object({
+  sessionId: z.string(),
+  questionId: z.string(),
+  answer: z.any(),
+  timeSpent: z.number(),
+  usedHints: z.number().default(0),
+  confidence: z.number().min(1).max(5).optional(),
+})), async (c) => {
+  const db = c.get('db');
+  const user = c.get('user');
+  const data = c.req.valid('json');
+
+  // Get question to check answer
+  const question = await db.query.questions.findFirst({
+    where: eq(questions.id, data.questionId),
+  });
+
+  if (!question) {
+    return c.json({ error: 'Question not found' }, 404);
+  }
+
+  // Check if answer is correct (simplified)
+  const isCorrect = checkAnswer(data.answer, question.correctAnswer);
+
+  // Calculate score
+  const baseScore = 100;
+  const timeEstimate = question.metadata?.timeEstimate ?? 0;
+  const timeBonus = Math.max(0, Math.floor((timeEstimate - data.timeSpent) * 2));
+  const hintPenalty = data.usedHints * 20;
+  const score = Math.max(0, baseScore + timeBonus - hintPenalty);
+
+  // Save progress
+  const [progress] = await db.insert(studentProgress).values({
+    id: crypto.randomUUID(),
+    studentId: user.id,
+    sessionId: data.sessionId,
+    questionId: data.questionId,
+    answer: data.answer,
+    isCorrect,
+    timeSpent: data.timeSpent,
+    usedHints: data.usedHints,
+    confidence: data.confidence,
+  }).returning();
+
+  return c.json({
+    success: true,
+    isCorrect,
+    score,
+    correctAnswer: question.correctAnswer,
+    solution: question.solutionSteps,
+    nextQuestion: null, // In real implementation, get next question
+  });
+});
+
+// Get leaderboard for a session
+app.get('/sessions/:sessionId/leaderboard', authMiddleware, async (c) => {
+  const db = c.get('db');
+  const sessionId = c.req.param('sessionId');
+
+  const progress = await db.query.studentProgress.findMany({
+    where: eq(studentProgress.sessionId, sessionId),
+    with: {
+      student: true,
+      question: true,
+    },
+  });
+
+  // Calculate scores per student
+  const scores = progress.reduce((acc, p) => {
+    const baseScore = p.isCorrect ? 100 : 0;
+    const timeEstimate = p.question?.metadata?.timeEstimate ?? 0;
+    const timeBonus = Math.max(0, Math.floor((timeEstimate - (p.timeSpent || 0)) * 2));
+    const hintPenalty = (p.usedHints || 0) * 20;
+    const score = Math.max(0, baseScore + timeBonus - hintPenalty);
+
+    if (!acc[p.studentId]) {
+      acc[p.studentId] = {
+        studentId: p.studentId,
+        name: p.student.name,
+        totalScore: 0,
+        correctAnswers: 0,
+        totalQuestions: 0,
+        averageTime: 0,
+      };
+    }
+
+    acc[p.studentId].totalScore += score;
+    acc[p.studentId].totalQuestions += 1;
+    if (p.isCorrect) acc[p.studentId].correctAnswers += 1;
+    if (p.timeSpent) {
+      acc[p.studentId].averageTime =
+        (acc[p.studentId].averageTime * (acc[p.studentId].totalQuestions - 1) + p.timeSpent) /
+        acc[p.studentId].totalQuestions;
+    }
+
+    return acc;
+  }, {} as Record<string, any>);
+
+  const leaderboard = Object.values(scores)
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .map((entry, index) => ({
+      rank: index + 1,
+      ...entry,
+      accuracy: (entry.correctAnswers / entry.totalQuestions) * 100,
+    }));
+
+  return c.json({ leaderboard });
+});
+
+// Helper method to check answers
+const checkAnswer = (userAnswer: any, correctAnswer: any): boolean => {
+  // Implement answer checking logic
+  // Handle different answer types (number, string, array, etc.)
+  if (typeof userAnswer === 'number' && typeof correctAnswer === 'number') {
+    return Math.abs(userAnswer - correctAnswer) < 0.001; // Allow small floating point errors
+  }
+
+  if (Array.isArray(userAnswer) && Array.isArray(correctAnswer)) {
+    return JSON.stringify(userAnswer.sort()) === JSON.stringify(correctAnswer.sort());
+  }
+
+  return userAnswer === correctAnswer;
+};
+
+export default app;
+⚙️ MAIN ENTRY POINT
+typescript
+// src/index.ts
+import { serve } from '@hono/node-server';
+import { setupServer } from './server';
+import { GameWebSocketServer } from './lib/realtime/websocket';
+import { setupDB, runMigrations } from './lib/db';
+
+// Load environment variables
+import 'dotenv/config';
+
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+const HOST = process.env.HOST || '0.0.0.0';
+
+async function startServer() {
+  try {
+    console.log('Starting Mathemagic Touch Server...');
+
+    // Setup database and run migrations
+    console.log('Setting up database...');
+    const db = setupDB();
+    await runMigrations(db);
+    console.log('Database setup complete');
+
+    // Create Hono app
+    console.log('Setting up HTTP server...');
+    const app = setupServer();
+
+    // Start HTTP server
+    const server = serve({
+      fetch: app.fetch,
+      port: PORT,
+      hostname: HOST,
+    }, (info) => {
+      console.log(`🚀 Server running on http://${info.hostname}:${info.port}`);
+      console.log(`📚 API Documentation: http://${info.hostname}:${info.port}/docs`);
+      console.log(`🎮 Game Interface: http://${info.hostname}:${info.port}`);
+      console.log(`⚡ Using Bun ${Bun.version}`);
+    });
+
+    // Start WebSocket server
+    console.log('Setting up WebSocket server...');
+    const wss = new GameWebSocketServer(server);
+    console.log('WebSocket server ready');
+
+    // Graceful shutdown
+    const shutdown = async () => {
+      console.log('\nShutting down server...');
+      server.close();
+      console.log('Server shut down gracefully');
+      process.exit(0);
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();
+🔧 BUNFIG.TOML CONFIGURATION
+toml
+# bunfig.toml
+[env]
+NODE_ENV = "development"
+
+[install]
+# Prefer offline installation for school environments
+offline = true
+# Save exact versions
+save = true
+
+[bundle]
+# Bundle for production
+minify = true
+splitting = true
+packages = "bundle"
+
+[build]
+outdir = "dist"
+target = "bun"
+
+[test]
+# Test configuration
+timeout = 5000
+
+[debug]
+# Debug configuration
+port = 6499
+📦 DEPLOYMENT SCRIPT
+bash
+#!/bin/bash
+# scripts/deploy.sh
+
+echo "🚀 Deploying Mathemagic Touch..."
+
+# Build the project
+echo "📦 Building project..."
+bun run build
+
+# Run database migrations
+echo "🗄️ Running database migrations..."
+bun run db:migrate
+
+# Copy public assets
+echo "📁 Copying public assets..."
+cp -r public/* dist/public/
+
+# Create service file for systemd (Linux)
+if [ "$1" = "production" ]; then
+    echo "🔧 Creating systemd service..."
+    cat > /etc/systemd/system/mathemagic-touch.service << EOF
+[Unit]
+Description=Mathemagic Touch Game Server
+After=network.target
+
+[Service]
+Type=simple
+User=ifp
+WorkingDirectory=/opt/mathemagic-touch
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=JWT_SECRET=$(openssl rand -hex 32)
+ExecStart=/usr/bin/bun run dist/index.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable mathemagic-touch
+    systemctl start mathemagic-touch
+
+    echo "✅ Deployment complete! Service is running."
+else
+    echo "✅ Development build complete!"
+    echo "Run with: bun start"
+fi
+🎯 KEY ADVANTAGES OF THIS STACK
+1. Performance:
+Bun: 4x faster than Node.js for HTTP serving
+
+SQLite: Zero-configuration, file-based database perfect for schools
+
+Hono: Ultra-lightweight framework with minimal overhead
+
+2. Developer Experience:
+TypeScript First: Full type safety from database to API
+
+Hot Reloading: Instant feedback during development
+
+Single Runtime: Bun handles JavaScript, TypeScript, package management, testing
+
+3. Deployment Simplicity:
+Single binary deployment with Bun
+
+SQLite database = single file, easy backup
+
+No external dependencies needed
+
+4. Real-time Capabilities:
+Native WebSocket support in Bun
+
+Room-based multiplayer architecture
+
+Low-latency game state synchronization
+
+5. School Environment Friendly:
+Works offline (SQLite + Service Worker)
+
+Low resource consumption
+
+Easy to install and maintain
+
+No complex infrastructure needed
+
+📊 PERFORMANCE METRICS (ESTIMATED)
+text
+Component          | Metric                    | Value
+-------------------|---------------------------|-------------------
+HTTP Requests      | Requests/second          | 10,000+ (Bun)
+WebSocket Messages | Messages/second          | 50,000+ (Bun)
+Database Queries   | Simple queries/second    | 15,000+ (SQLite)
+Memory Usage       | Idle                     | ~50 MB
+Startup Time       | Cold start               | < 500ms
+Game Session       | Concurrent sessions      | 100+ per instance
+🚀 QUICK START
+bash
+# 1. Install Bun (if not installed)
+curl -fsSL https://bun.sh/install | bash
+
+# 2. Clone and setup project
+git clone https://github.com/your-org/mathemagic-touch.git
+cd mathemagic-touch
+
+# 3. Install dependencies
+bun install
+
+# 4. Setup environment
+cp .env.example .env
+# Edit .env with your settings
+
+# 5. Run database migrations
+bun run db:generate
+bun run db:migrate
+
+# 6. Start development server
+bun run dev
+
+# 7. Open in browser
+# http://localhost:3000 for game interface
+# http://localhost:3000/teacher for dashboard
+Blueprint ini memberikan arsitektur yang high-performance, easy to deploy, dan scalable untuk lingkungan sekolah dengan teknologi stack modern yang optimal untuk Interactive Flat Panel.
