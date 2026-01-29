@@ -5,6 +5,7 @@
 <main class="page">
   {#if view === "lobby"}
     <section class="card">
+      <a class="back" href="/play">← Kembali ke Latihan</a>
       <h1>Mode Perang</h1>
       <p class="muted">
         Buat room atau gabung dengan kode. 2 pemain, soal berbeda, damage sesuai difficulty.
@@ -29,6 +30,7 @@
     </section>
   {:else}
     <section class="arena">
+      <a class="back" href="/play">← Kembali ke Latihan</a>
       <div class="top-bar">
         <div class="team-card">
           <p class="team">{self?.team === "alpha" ? "TIM ALPHA" : "TIM BRAVO"}</p>
@@ -602,6 +604,14 @@
     padding: 24px;
     border: 1px solid rgba(31, 29, 27, 0.1);
     box-shadow: 0 24px 60px rgba(35, 31, 27, 0.12);
+  }
+
+  .back {
+    display: inline-block;
+    margin-bottom: 12px;
+    text-decoration: none;
+    color: #1f1d1b;
+    font-weight: 600;
   }
 
   .form {

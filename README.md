@@ -101,12 +101,13 @@ bun run dev
 ## UI Routes
 
 - Home: http://localhost:6200/
+- Student: http://localhost:6200/play
+- War Mode: http://localhost:6200/play/war
 - Teacher Login: http://localhost:6200/teacher/login
 - Teacher CRUD:
   - Questions: /teacher/questions
   - Classes: /teacher/classes
   - Sessions: /teacher/sessions
-- War Mode: http://localhost:6200/war
 
 ## API (selected)
 
