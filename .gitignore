@@ -1,0 +1,10 @@
+node_modules/
+ui/node_modules/
+ui/.svelte-kit/
+ui/build/
+ui/.vite/
+data/*.db
+.env
+.env.*
+dist/
+*.log

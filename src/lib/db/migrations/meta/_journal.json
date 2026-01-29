@@ -1,0 +1,41 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1769647560750,
+      "tag": "0000_massive_wither",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1769650239205,
+      "tag": "0001_slim_quentin_quire",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1769650520054,
+      "tag": "0002_slim_romulus",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1769653298243,
+      "tag": "0003_wandering_hobgoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1769653541861,
+      "tag": "0004_sour_triathlon",
+      "breakpoints": true
+    }
+  ]
+}
